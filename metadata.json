@@ -1,0 +1,6 @@
+{
+  "name": "Captain Haze - Singapore Tourist Haze Guide & Live PSI",
+  "description": "Essential haze survival and travel guide for tourists visiting Singapore. Real-time NEA PSI air quality, health impacts, symptom checker, pharmacy & clinic finder, and smart indoor itinerary substitutions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
