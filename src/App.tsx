@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { AlertBanner } from './components/AlertBanner';
 import { HeroAirQuality } from './components/HeroAirQuality';
+import { LocationPsiChecker } from './components/LocationPsiChecker';
 import { SingaporeMap } from './components/SingaporeMap';
 import { HazeExplanation } from './components/HazeExplanation';
 import { AdvisoryMatrix } from './components/AdvisoryMatrix';
@@ -127,7 +128,17 @@ export default function App() {
           }}
         />
 
-        {/* 2. Interactive Singapore 5-Zone Map */}
+        {/* 2. User Location Live PSI Checker */}
+        <LocationPsiChecker
+          psiData={psiData}
+          selectedRegion={selectedRegion}
+          onSelectRegion={(reg) => {
+            setSelectedRegion(reg);
+            setBannerDismissed(false);
+          }}
+        />
+
+        {/* 3. Interactive Singapore 5-Zone Map */}
         <SingaporeMap
           psiData={psiData}
           selectedRegion={selectedRegion}

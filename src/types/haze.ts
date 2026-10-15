@@ -86,3 +86,28 @@ export interface Symptom {
   isRedFlag: boolean;
   description: string;
 }
+
+export interface UserLocationResult {
+  query: string;
+  matchedName: string;
+  region: RegionKey;
+  regionLabel: string;
+  nearestStation: string;
+  coordinates?: { lat: number; lng: number };
+  nearestIndoorHaven: {
+    name: string;
+    description: string;
+    nearestMrt: string;
+  };
+  nearestPharmacy: {
+    name: string;
+    address: string;
+    nearestMrt: string;
+  };
+  nearestHospital: {
+    name: string;
+    phone: string;
+    address: string;
+  };
+}
+

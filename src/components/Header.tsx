@@ -20,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navItems = [
     { id: 'air-quality', label: 'Live Air Quality' },
+    { id: 'my-location', label: 'Check My Spot' },
     { id: 'what-is-haze', label: 'Haze Explained' },
     { id: 'itineraries', label: 'Indoor Itineraries' },
     { id: 'symptoms', label: 'Symptom Care' },
