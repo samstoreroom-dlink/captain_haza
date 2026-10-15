@@ -1,113 +1,108 @@
-export type RegionKey = 'national' | 'central' | 'south' | 'east' | 'west' | 'north';
+export type SingaporeRegion = 'national' | 'central' | 'north' | 'south' | 'east' | 'west';
 
-export interface RegionData {
-  psi: number;
-  pm25_one_hr: number;
+export interface RegionalPsiData {
+  region: SingaporeRegion;
+  displayName: string;
+  psi24Hourly: number;
+  pm25OneHourly: number;
   status: 'Good' | 'Moderate' | 'Unhealthy' | 'Very Unhealthy' | 'Hazardous';
-  color: 'emerald' | 'blue' | 'amber' | 'rose' | 'purple';
-  advice: string;
+  description: string;
+  updateTime: string;
 }
 
 export interface PsiApiResponse {
-  source: string;
-  timestamp: string;
-  update_timestamp: string;
-  regions: Record<RegionKey, RegionData>;
-  weather: {
-    wind_direction: string;
-    wind_speed_kmh: number;
-    temperature_c: number;
-    humidity_pct: number;
-    summary: string;
-  };
+  region_metadata: Array<{
+    name: string;
+    label_location: {
+      latitude: number;
+      longitude: number;
+    };
+  }>;
+  items: Array<{
+    timestamp: string;
+    update_timestamp: string;
+    readings: {
+      psi_twenty_four_hourly: Record<string, number>;
+      pm25_one_hourly: Record<string, number>;
+      pm25_twenty_four_hourly?: Record<string, number>;
+      so2_twenty_four_hourly?: Record<string, number>;
+      o3_eight_hour_max?: Record<string, number>;
+      no2_one_hour_max?: Record<string, number>;
+      co_eight_hour_max?: Record<string, number>;
+    };
+  }>;
 }
 
-export interface MedicalSupply {
+export interface ItinerarySubstitution {
+  id: string;
+  outdoorAttraction: string;
+  outdoorZone: string;
+  outdoorDescription: string;
+  hazeRisk: 'Moderate' | 'High' | 'Severe';
+  indoorAlternative: string;
+  alternativeCategory: 'Museum & Culture' | 'Botanical Dome' | 'Mega Entertainment' | 'Shopping & Dining' | 'Family & Kids';
+  location: string;
+  nearestMrt: string;
+  indoorAirQuality: 'HEPA Filtered' | 'Fully Enclosed AC' | 'Underground Sheltered';
+  highlight: string;
+  admission: 'Free' | 'Ticketed';
+  suggestedDuration: string;
+  imageUrl: string;
+  practicalTips: string[];
+}
+
+export interface MedicalSupplyItem {
   id: string;
   name: string;
-  category: 'mask' | 'eyes' | 'nasal' | 'throat' | 'purifier';
-  recommendedModel: string;
+  category: 'Respiratory Protection' | 'Eye Care' | 'Throat & Nasal' | 'Medication & Devices';
+  singaporePriceSgd: string;
+  effectivenessRating: string;
   whyNeeded: string;
-  usageTips: string;
-  typicalPriceSgd: string;
-  isN95Required: boolean;
-  badge: string;
+  recommendedBrands: string[];
+  usageAdvice: string;
+  isN95OrEquivalent: boolean;
+  stockAvailability: 'High' | 'Moderate' | 'In-Demand';
+  retailers: string[];
 }
 
-export interface PharmacyStore {
-  id: string;
-  brand: 'Guardian' | 'Watsons' | 'Unity' | '7-Eleven' | 'Hospital';
+export interface PharmacyChain {
   name: string;
-  zone: 'Marina Bay / City Hall' | 'Orchard Road' | 'Chinatown / Bugis' | 'Sentosa / HarbourFront' | 'Changi Airport';
-  address: string;
-  nearestMrt: string;
+  outletCount: string;
   operatingHours: string;
-  phone?: string;
-  hasPharmacist: boolean;
-  googleMapsQuery: string;
+  popularTouristOutlets: string[];
+  hotline: string;
+  website: string;
+  notes: string;
 }
 
-export interface MedicalFacility {
+export interface ClinicOrHospital {
   id: string;
   name: string;
-  type: '24h Emergency Hospital' | '24h GP Clinic' | 'Polyclinic' | 'Specialist';
-  zone: string;
+  type: '24h Emergency Hospital (A&E)' | 'Children Specialized Emergency' | '24h GP Clinic' | 'Telemedicine Service';
   address: string;
-  nearestMrt: string;
+  area: string;
   phone: string;
-  isEmergency24h: boolean;
-  touristNotes: string;
+  estimatedWaitTime: string;
+  touristFriendly: boolean;
+  languages: string[];
+  insuranceAccepted: string;
   googleMapsQuery: string;
 }
 
-export interface ItinerarySwap {
-  id: string;
-  outdoorOriginal: {
-    name: string;
-    tagline: string;
-    hazeIssue: string;
-  };
-  indoorReplacement: {
-    name: string;
-    tagline: string;
-    airQualityStatus: string;
-    highlight: string;
-    location: string;
-    nearestMrt: string;
-    category: 'Iconic Sights' | 'Family & Kids' | 'Culture & Museums' | 'Shopping & Dining' | 'Nature Under Glass';
-    tips: string;
-  };
+export interface SymptomTriage {
+  level: 'Mild' | 'Moderate' | 'Severe';
+  symptoms: string[];
+  recommendedAction: string;
+  urgency: string;
+  homeCare: string[];
+  whenToSeekDoctor: string;
 }
 
-export interface Symptom {
-  id: string;
-  name: string;
-  organ: 'Eyes' | 'Throat & Nose' | 'Lungs & Breathing' | 'Systemic';
-  isRedFlag: boolean;
-  description: string;
+export interface AgeGroupGuideline {
+  group: string;
+  subtext: string;
+  psiUnder100: string;
+  psi101To200: string;
+  psi201Plus: string;
+  keyPrecautions: string[];
 }
-
-export interface UserLocationResult {
-  query: string;
-  matchedName: string;
-  region: RegionKey;
-  regionLabel: string;
-  nearestStation: string;
-  coordinates?: { lat: number; lng: number };
-  nearestIndoorHaven: {
-    name: string;
-    description: string;
-    nearestMrt: string;
-  };
-  nearestPharmacy: {
-    name: string;
-    address: string;
-    nearestMrt: string;
-  };
-  nearestHospital: {
-    name: string;
-    phone: string;
-    address: string;
-  };
-}
-

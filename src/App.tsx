@@ -1,183 +1,159 @@
-import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
-import { AlertBanner } from './components/AlertBanner';
-import { HeroAirQuality } from './components/HeroAirQuality';
-import { LocationPsiChecker } from './components/LocationPsiChecker';
-import { SingaporeMap } from './components/SingaporeMap';
-import { HazeExplanation } from './components/HazeExplanation';
-import { AdvisoryMatrix } from './components/AdvisoryMatrix';
-import { SymptomChecker } from './components/SymptomChecker';
-import { SupplyAndClinicFinder } from './components/SupplyAndClinicFinder';
-import { ItinerarySubstitutions } from './components/ItinerarySubstitutions';
-import { AiTouristConcierge } from './components/AiTouristConcierge';
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useEffect, useState } from 'react';
+import { Navbar, AppTab } from './components/Navbar';
+import { HomeOverview } from './components/HomeOverview';
+import { LiveHazeMonitor } from './components/LiveHazeMonitor';
+import { ItinerarySubstitutionEngine } from './components/ItinerarySubstitutionEngine';
+import { WhatToBuyGuide } from './components/WhatToBuyGuide';
+import { SymptomAndHelpCenter } from './components/SymptomAndHelpCenter';
+import { HazeEducationGuide } from './components/HazeEducationGuide';
+import { HazeSimulatorModal } from './components/HazeSimulatorModal';
+import { HazeAlertBanner } from './components/HazeAlertBanner';
 import { Footer } from './components/Footer';
-import { RegionKey, PsiApiResponse } from './types/haze';
+import { fetchLiveSingaporePsi } from './services/psiService';
+import { RegionalPsiData, SingaporeRegion } from './types/haze';
+import { FALLBACK_PSI_DATA } from './data/hazeData';
+import { LocationMatchResult } from './utils/locationResolver';
 
 export default function App() {
-  const [psiData, setPsiData] = useState<PsiApiResponse | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<RegionKey>('south');
-  const [loading, setLoading] = useState<boolean>(true);
-  const [activeSection, setActiveSection] = useState<string>('air-quality');
-  const [isAiChatOpen, setIsAiChatOpen] = useState<boolean>(false);
-  const [aiChatPrompt, setAiChatPrompt] = useState<string>('');
-  const [alertThresholdActive, setAlertThresholdActive] = useState<boolean>(true);
-  const [bannerDismissed, setBannerDismissed] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<AppTab>('overview');
+  const [selectedRegion, setSelectedRegion] = useState<SingaporeRegion>('central');
+  const [userLocation, setUserLocation] = useState<LocationMatchResult | null>({
+    query: 'Marina Bay Sands',
+    matchedName: 'Marina Bay & Bayfront',
+    region: 'central',
+    regionDisplayName: 'Central Singapore',
+    note: 'Popular Tourist Landmark',
+  });
+  const [regionsData, setRegionsData] = useState<Record<SingaporeRegion, RegionalPsiData>>(
+    FALLBACK_PSI_DATA as Record<SingaporeRegion, RegionalPsiData>
+  );
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLiveFeed, setIsLiveFeed] = useState(false);
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
+  const [simulatedPsi, setSimulatedPsi] = useState<number | null>(null);
+  const [alertThresholdEnabled, setAlertThresholdEnabled] = useState(true);
 
-  const fetchPsiData = async () => {
-    setLoading(true);
+  const loadPsiData = async () => {
+    setIsRefreshing(true);
     try {
-      const res = await fetch('/api/psi');
-      if (res.ok) {
-        const data = await res.json();
-        setPsiData(data);
-      } else {
-        console.warn('API returned non-ok status, falling back');
-      }
+      const res = await fetchLiveSingaporePsi();
+      setRegionsData(res.data);
+      setIsLiveFeed(res.isLive);
     } catch (err) {
-      console.error('Failed to load PSI:', err);
+      console.error('Error fetching live PSI:', err);
     } finally {
-      setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
-    fetchPsiData();
-    // Auto-refresh every 3 minutes
-    const interval = setInterval(fetchPsiData, 3 * 60 * 1000);
+    loadPsiData();
+    // Refresh every 5 minutes
+    const interval = setInterval(loadPsiData, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  const currentRegionData = psiData?.regions[selectedRegion] || {
-    psi: 168,
-    pm25_one_hr: 142,
-    status: 'Unhealthy' as const,
-    color: 'amber' as const,
-    advice: 'Reduce prolonged or strenuous outdoor physical exertion. Sensitive groups stay indoors.',
+  // Compute active region data, incorporating simulator override if active
+  const baseRegionData = regionsData[selectedRegion] || regionsData['national'];
+  const effectivePsi = simulatedPsi !== null ? simulatedPsi : baseRegionData.psi24Hourly;
+
+  const determineStatus = (psi: number): RegionalPsiData['status'] => {
+    if (psi <= 50) return 'Good';
+    if (psi <= 100) return 'Moderate';
+    if (psi <= 200) return 'Unhealthy';
+    if (psi <= 300) return 'Very Unhealthy';
+    return 'Hazardous';
   };
 
-  const getRegionDisplayName = (key: RegionKey) => {
-    switch (key) {
-      case 'south':
-        return 'South (Marina Bay & Sentosa)';
-      case 'central':
-        return 'Central (Orchard & Bugis)';
-      case 'east':
-        return 'East (Changi Airport)';
-      case 'west':
-        return 'West (Jurong)';
-      case 'north':
-        return 'North (Woodlands & Zoo)';
-      default:
-        return 'National Average';
-    }
+  const effectiveRegionData: RegionalPsiData = {
+    ...baseRegionData,
+    psi24Hourly: effectivePsi,
+    status: determineStatus(effectivePsi),
+    description:
+      simulatedPsi !== null
+        ? `[SIMULATED SCENARIO] Air quality is in the ${determineStatus(effectivePsi)} band (PSI ${effectivePsi}). Testing tourist advisory responses.`
+        : baseRegionData.description,
   };
 
-  const handleOpenAiConciergeWithPrompt = (prompt: string) => {
-    setAiChatPrompt(prompt);
-    setIsAiChatOpen(true);
+  const handleApplySimulation = (psi: number | null) => {
+    setSimulatedPsi(psi);
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 selection:bg-amber-100 selection:text-amber-900">
-      {/* Top Header */}
-      <Header
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
-        onOpenAiChat={() => {
-          setAiChatPrompt('');
-          setIsAiChatOpen(true);
-        }}
-        alertThresholdActive={alertThresholdActive}
-        onToggleAlertThreshold={() => setAlertThresholdActive((prev) => !prev)}
-        currentPsi={currentRegionData.psi}
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900 selection:bg-slate-900 selection:text-white">
+      {/* Top Advisory Banner (Active when PSI > 100) */}
+      <HazeAlertBanner
+        psi={effectivePsi}
+        status={effectiveRegionData.status}
+        onNavigateToItinerary={() => setActiveTab('itinerary')}
+        onNavigateToSupplies={() => setActiveTab('supplies')}
       />
 
-      {/* Real-time Tourist Alert Banner */}
-      {alertThresholdActive && (
-        <AlertBanner
-          currentRegionData={currentRegionData}
-          regionName={getRegionDisplayName(selectedRegion)}
-          onNavigateToSwaps={() => {
-            const el = document.getElementById('itineraries');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }}
-          onNavigateToSupplies={() => {
-            const el = document.getElementById('supplies-clinics');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }}
-          onDismiss={() => setBannerDismissed(true)}
-          isDismissed={bannerDismissed}
-        />
-      )}
+      {/* Top Bar adhering to Top Bar Contract */}
+      <Navbar
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onOpenSimulator={() => setSimulatorOpen(true)}
+        isSimulating={simulatedPsi !== null}
+        simulatedPsi={simulatedPsi ?? effectivePsi}
+      />
 
-      {/* Main Content Sections */}
-      <main className="flex-1">
-        {/* 1. Live PSI & Air Quality Dial */}
-        <HeroAirQuality
-          psiData={psiData}
-          selectedRegion={selectedRegion}
-          onSelectRegion={(reg) => {
-            setSelectedRegion(reg);
-            setBannerDismissed(false); // Reset banner when region changes
-          }}
-          onRefresh={fetchPsiData}
-          loading={loading}
-          onOpenConcierge={() => {
-            setAiChatPrompt('');
-            setIsAiChatOpen(true);
-          }}
-        />
+      {/* Main Viewport Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {activeTab === 'overview' && (
+          <HomeOverview
+            currentRegionData={effectiveRegionData}
+            allRegionsData={regionsData}
+            selectedRegion={selectedRegion}
+            onSelectRegion={setSelectedRegion}
+            onNavigateToTab={(tab) => setActiveTab(tab)}
+            userLocation={userLocation}
+            onSetUserLocation={setUserLocation}
+          />
+        )}
 
-        {/* 2. User Location Live PSI Checker */}
-        <LocationPsiChecker
-          psiData={psiData}
-          selectedRegion={selectedRegion}
-          onSelectRegion={(reg) => {
-            setSelectedRegion(reg);
-            setBannerDismissed(false);
-          }}
-        />
+        {activeTab === 'live' && (
+          <LiveHazeMonitor
+            currentRegionData={effectiveRegionData}
+            allRegionsData={regionsData}
+            selectedRegion={selectedRegion}
+            onSelectRegion={setSelectedRegion}
+            onRefresh={loadPsiData}
+            isRefreshing={isRefreshing}
+            onNavigateToItinerary={() => setActiveTab('itinerary')}
+            onNavigateToSupplies={() => setActiveTab('supplies')}
+            onNavigateToEducation={() => setActiveTab('education')}
+            alertThresholdEnabled={alertThresholdEnabled}
+            onToggleAlertThreshold={() => setAlertThresholdEnabled(!alertThresholdEnabled)}
+            userLocation={userLocation}
+            onSetUserLocation={setUserLocation}
+          />
+        )}
 
-        {/* 3. Interactive Singapore 5-Zone Map */}
-        <SingaporeMap
-          psiData={psiData}
-          selectedRegion={selectedRegion}
-          onSelectRegion={(reg) => {
-            setSelectedRegion(reg);
-            setBannerDismissed(false);
-          }}
-        />
+        {activeTab === 'itinerary' && <ItinerarySubstitutionEngine />}
 
-        {/* 3. What is Haze? (Origins, PSI vs PM2.5, Mask efficacy, Hotel hacks) */}
-        <HazeExplanation />
+        {activeTab === 'supplies' && <WhatToBuyGuide />}
 
-        {/* 4. Age-Group & Vulnerability Action Matrix */}
-        <AdvisoryMatrix />
+        {activeTab === 'health' && <SymptomAndHelpCenter />}
 
-        {/* 5. Indoor Itinerary Substitutions ("Enjoy Your Holiday Despite Haze") */}
-        <ItinerarySubstitutions />
-
-        {/* 6. Symptom Checker & Medical Self-Triage */}
-        <SymptomChecker
-          onOpenSupplies={() => {
-            const el = document.getElementById('supplies-clinics');
-            if (el) el.scrollIntoView({ behavior: 'smooth' });
-          }}
-          onOpenAiConciergeWithPrompt={handleOpenAiConciergeWithPrompt}
-        />
-
-        {/* 7. Supplies, Pharmacies, 24/7 Hospitals & Multi-language Cards */}
-        <SupplyAndClinicFinder />
+        {activeTab === 'education' && <HazeEducationGuide />}
       </main>
 
-      {/* Footer with Hotlines & Official Portals */}
-      <Footer />
+      {/* Footer */}
+      <Footer onSelectTab={(tab) => setActiveTab(tab)} />
 
-      {/* AI Tourist Concierge Modal (Gemini 3.8 Flash) */}
-      <AiTouristConcierge
-        isOpen={isAiChatOpen}
-        onClose={() => setIsAiChatOpen(false)}
-        initialPrompt={aiChatPrompt}
+      {/* Interactive Scenario Simulator Modal */}
+      <HazeSimulatorModal
+        isOpen={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+        isSimulating={simulatedPsi !== null}
+        simulatedPsi={simulatedPsi ?? 75}
+        onApplySimulation={handleApplySimulation}
       />
     </div>
   );
